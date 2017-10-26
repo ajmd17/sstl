@@ -9,13 +9,20 @@ module.exports = function (io) {
 
   Arena.prototype.addClient = function (client) {
     this.clients.push(client);
+    this._updateWorkloadShare();
   };
 
   Arena.prototype.removeClient = function (client) {
     var index = this.clients.indexOf(client);
     if (index !== -1) {
       this.clients.splice(index, 1);
+      this._updateWorkloadShare();
     }
+  };
+
+  Arena.prototype._updateWorkloadShare = function () {
+    var workloadShare = Math.floor((NUM_ITERATIONS - this.elapsedIterations) / this.clients.length);
+    io.emit('delegate remaining iterations', { numIterations: workloadShare });
   };
 
   Arena.prototype.nextTick = function () {

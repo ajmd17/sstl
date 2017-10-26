@@ -218,35 +218,43 @@ NeuralNetwork.Builder = {
               const inputColumnIndices = inputColumnPicker.values();
               const outputColumnIndices = outputColumnPicker.values();
 
+              const inputHeader = this.hasHeader ? [] : null;
+              const outputHeader = this.hasHeader ? [] : null;
+
               const inputData = [];
               const outputData = [];
 
-              let header = null;
-
               split.forEach((row, rowIdx) => {
-                  if (this.hasHeader && rowIdx == 0) {
-                      header = row;
-                      return;
-                  }
+                  const isHeader = this.hasHeader && rowIdx == 0;
 
                   let inputArr = [];
                   let outputArr = [];
 
                   for (let i = 0; i < row.length; i++) {
                       if (inputColumnIndices.indexOf(i) !== -1) {
-                          inputArr.push(row[i]);
+                          if (isHeader) {
+                              inputHeader.push(row[i]);
+                          } else {
+                              inputArr.push(row[i]);
+                          }
                       }
                       
                       if (outputColumnIndices.indexOf(i) !== -1) {
-                          outputArr.push(row[i]);
+                          if (isHeader) {
+                              outputHeader.push(row[i]);
+                          } else {
+                              outputArr.push(row[i]);
+                          }
                       }
                   }
 
-                  inputData.push(inputArr);
-                  outputData.push(outputArr);
+                  if (!isHeader) {
+                    inputData.push(inputArr);
+                    outputData.push(outputArr);
+                  }
               });
               
-              return new NeuralNetwork(Data.from(inputData, header), Data.from(outputData, header));
+              return new NeuralNetwork(Data.from(inputData, inputHeader), Data.from(outputData, outputHeader));
           }
       };
   }

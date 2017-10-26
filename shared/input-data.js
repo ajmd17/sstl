@@ -41,9 +41,9 @@ Data.prototype.numericVariableAt = function (rowIndex, colIndex) {
     case DataTypes.NUMERICAL:
       return parseFloat(row[colIndex]);
     case DataTypes.CATEGORICAL:
-      return this._possibleCategoricalValues[this.schema[colIndex].label].indexOf(row[colIndex]);
+      return this._possibleCategoricalValues[this.schema[colIndex].label].indexOf(row[colIndex]) / (this._possibleCategoricalValues[this.schema[colIndex].label].length - 1);
     default:
-      row[colIndex];
+      return row[colIndex];
   }
 };
 
@@ -58,7 +58,7 @@ Data.prototype.reverseLookup = function (colIndex, value) {
   switch (schemaField.type) {
       case DataTypes.CATEGORICAL: {
           var possibleValues = this._possibleCategoricalValues[schemaField.label];
-          return possibleValues[Math.floor(value * possibleValues.length)];
+          return possibleValues[Math.floor(value * possibleValues.length) * (possibleValues.length - 1)];
       }
       default:
           return value;
@@ -87,7 +87,7 @@ Data.from = function (rows, header) {
           throw Error('Header column length must be same as data column length');
       }
 
-      return new Data(header.map((label, i) => new SchemaField(label, row0Schema[i])));
+      return new Data(header.map((label, i) => new SchemaField(label, row0Schema[i])), rows);
   }
 
 

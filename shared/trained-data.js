@@ -3,26 +3,26 @@
  * @param {number[]} vWeights 
  * @param {number[][]} wWeights
  * @param {number[]} bias
+ * @param {number} bout
+ * @param {{ start: number, end: number }} [range]
  */
-function TrainedData(vWeights, wWeights, bias) {
-    this.vWeights = vWeights;
-    this.wWeights = wWeights;
-    this.bias = bias;
+function TrainedData(vWeights, wWeights, bias, bout, range) {
+  this.vWeights = vWeights;
+  this.wWeights = wWeights;
+  this.bias = bias;
+  this.bout = bout;
+  this.range = range;
 }
 
-/**
- * Merges in-place
- * @param {TrainedData} other 
- */
-TrainedData.prototype.extend = function (other) {
-    this.vWeights = this.vWeights.concat(other.vWeights);
-    this.wWeights = this.wWeights.concat(other.wWeights);
-    this.bias = this.bias.concat(other.bias);
+TrainedData.prototype.inRange = function (x) {
+  if (this.range == null) {
+    return true;
+  }
 
-    return this;
+  return x >= this.range.start && x < this.range.end;
 };
 
 
 if (typeof module === 'object') {
-    module.exports = TrainedData;
+  module.exports = TrainedData;
 }
