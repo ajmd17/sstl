@@ -7,6 +7,7 @@ var inputData, outputData;
 var trainedData;
 var dimension;
 
+
 function _extractRow(rowIndex) {
   let elements = new Array(dimension);
 
@@ -18,43 +19,38 @@ function _extractRow(rowIndex) {
 }
 
 /**
+ * Forward propagation
  * @param {number[]} rowElements
  */
-const calculateFOut = (rowElements) => {
-  /** @type {number[]} */
-  let arr = Array.from(Array(dimension)).map((el, i) => {
-      let sum = 0.0;
+// const calculateFOut = (rowElements) => {
+//   /** @type {number[]} */
+//   let arr = Array.from(Array(dimension)).map((el, i) => {
+//     let sum = 0.0;
 
-      for (let j = 0; j < dimension; j++) {
-          sum += rowElements[j] * trainedData.wWeights[j][i];
-      }
+//     // 1. activation
+//     for (let j = 0; j < dimension; j++) {
+//       sum += rowElements[j] * trainedData.wWeights[j][i];
+//     }
 
-      return transfer(sum + trainedData.bias[i]);
-  });
+//     // 2. transfer
+//     return transfer(sum + trainedData.bias[i]);
+//   });
 
-  let fout = arr.reduce((accum, el, i) => {
-      return accum + (el * trainedData.vWeights[i]);
-  }, 0);
+//   let fout = arr.reduce((accum, el, i) => {
+//     return accum + (el * trainedData.vWeights[i]);
+//   }, 0);
 
-  fout = transfer(fout + trainedData.bout);
+//   fout = transfer(fout + trainedData.bout);
 
-  return { fout, foutArray: arr };
-};
+//   return { fout, foutArray: arr };
+// };
 
-// sigmoid function
-const transfer = (value) => {
-  return 1.0 / (1.0 + Math.exp(-value));
-};
+// // sigmoid function
+// const transfer = (value) => {
+//   return 1.0 / (1.0 + Math.exp(-value));
+// };
 
-/**
- * @param {number} output
- * @param {number} numNeurons 
- * @param {number} dimension 
- * @param {number} fout 
- * @param {number[]} foutArray
- * @param {number[]} rowElements
- */
-const learn = (output, fout, foutArray, rowElements) => {
+function copyTrainedData() {
   var before = {
     wWeights: [],
     vWeights: [],
@@ -79,6 +75,38 @@ const learn = (output, fout, foutArray, rowElements) => {
   for (var i = 0; i < trainedData.bias.length; i++) {
     before.bias.push(trainedData.bias[i]);
   }
+
+  return before;
+}
+
+function getTrainedDataDeltas(before) {
+  // get deltas
+  return {
+    vWeights: trainedData.vWeights.map(function (x, i) {
+      return x - before.vWeights[i];
+    }),
+    wWeights: trainedData.wWeights.map(function (x, i) {
+      return x.map(function (y, j) {
+        return y - before.wWeights[i][j];
+      })
+    }),
+    bias: trainedData.bias.map(function (x, i) {
+      return x - before.bias[i];
+    }),
+    bout: trainedData.bout - before.bout
+  };
+}
+
+/**
+ * @param {number} output
+ * @param {number} numNeurons 
+ * @param {number} dimension 
+ * @param {number} fout 
+ * @param {number[]} foutArray
+ * @param {number[]} rowElements
+ */
+const learn = (output, fout, foutArray, rowElements) => {
+  var before = copyTrainedData();
 
   let error = output - fout;
   let n = 0.05;
@@ -125,21 +153,7 @@ const learn = (output, fout, foutArray, rowElements) => {
     }
   }
 
-  // get deltas
-  var deltas = {
-    vWeights: trainedData.vWeights.map(function (x, i) {
-      return x - before.vWeights[i];
-    }),
-    wWeights: trainedData.wWeights.map(function (x, i) {
-      return x.map(function (y, j) {
-        return y - before.wWeights[i][j];
-      })
-    }),
-    bias: trainedData.bias.map(function (x, i) {
-      return x - before.bias[i];
-    }),
-    bout: trainedData.bout - before.bout
-  };
+  var deltas = getTrainedDataDeltas(before);
 
   //console.log('deltas = ', deltas);
   socket.emit('update trained data', deltas);
@@ -177,14 +191,14 @@ $(function () {
       if (currentIteration < numIterations) {
         for (var j = 0; j < outputData.values.length; j++) {
           var rowElements = _extractRow(j);
-          var fouts = calculateFOut(rowElements);
+          var fouts = forwardPropagation(trainedData, dimension, rowElements);
           var x = outputData.numericVariableAt(j, 0)/* first item as arrays not supported yet */;
 
           learn(x, fouts.fout, fouts.foutArray, rowElements);
         }
 
         currentIteration++;
-        setTimeout(next, 100);
+        setTimeout(next, 50);
       }
     }, 0);
   });

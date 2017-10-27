@@ -51,7 +51,7 @@ class NeuralNetwork {
       let bias = this._initBias();
       let weights = this._initWeights();
 
-      this.trainedData = new TrainedData(weights[0], weights[1], bias);
+      this.trainedData = new TrainedData(weights[0], weights[1], bias, 0.0);
   }
 
   /**

@@ -13,10 +13,9 @@ app.use('/shared', express.static(path.join(__dirname, 'shared')));
 const NeuralNetwork = require('./shared/neural-network');
 const Data = require('./shared/input-data');
 const Result = require('./shared/result');
+const forwardPropagation = require('./shared/forward-propagation');
 
 const testData = require('./shared/test-data');
-
-let bout = 0.0;
 
 var builder = NeuralNetwork.Builder.fromCsv(testData.TEST_DATA_IRIS);
 builder.header(false);
@@ -56,7 +55,7 @@ function train() {
     wWeights: nn.trainedData.wWeights,
     vWeights: nn.trainedData.vWeights,
     bias: nn.trainedData.bias,
-    bout: bout
+    bout: nn.trainedData.bout
   };
 
   switch (trainingMode) {
@@ -110,7 +109,7 @@ function updateDeltas(deltas) {
     nn.trainedData.bias[i] += bias[i];
   }
 
-  bout += deltas.bout;
+  nn.trainedData.bout += deltas.bout;
 }
 
 /**
@@ -143,39 +142,8 @@ function calculateRootMeanSquaredError(result) {
 
 function done() {
   console.log('done');
-  
-  // sigmoid function
-  const transfer = (value) => {
-      return 1.0 / (1.0 + Math.exp(-value));
-  };
 
-  /**
-   * @param {number[]} rowElements
-   */
-  const calculateFOut = (rowElements) => {
-    /** @type {number[]} */
-    let arr = Array.from(Array(nn._dimension)).map((el, i) => {
-      let sum = 0.0;
-      
-      for (let j = 0; j < nn._dimension; j++) {
-        sum += rowElements[j] * nn.trainedData.wWeights[j][i];
-      }
-
-      return transfer(sum + nn.trainedData.bias[i]);
-    });
-
-    let fout = arr.reduce((accum, el, i) => {
-      return accum + (el * nn.trainedData.vWeights[i]);
-    }, 0);
-
-    fout = transfer(fout + bout);
-
-    return { fout, foutArray: arr };
-  };
-
-  const result = new Result((input) => {
-    return calculateFOut(input).fout;
-  });
+  const result = new Result((input) => forwardPropagation(nn.trainedData, nn._dimension, input).fout);
 
   var rmse = calculateRootMeanSquaredError(result);
   console.log('Root Mean Squared Error:', rmse);
@@ -215,7 +183,7 @@ io.on('connection', function (socket) {
         wWeights: nn.trainedData.wWeights,
         vWeights: nn.trainedData.vWeights,
         bias: nn.trainedData.bias,
-        bout: bout
+        bout: nn.trainedData.bout
       });
     }
   });
