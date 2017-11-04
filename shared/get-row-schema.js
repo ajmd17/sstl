@@ -8,8 +8,6 @@ if (typeof require === 'function') {
 function getDataType(str) {
   if (!isNaN(str)) {
       return DataTypes.NUMERICAL;
-  } else if (['true', 'false'].indexOf(str.toLowerCase()) !== -1) {
-      return DataTypes.BOOLEAN;
   } else {
       return DataTypes.CATEGORICAL;
   }

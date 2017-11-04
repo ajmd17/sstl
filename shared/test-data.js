@@ -1,5 +1,17 @@
 'use strict';
 
+
+const AND_GATE = `
+0,0,FALSE
+0,1,FALSE
+1,1,TRUE
+1,0,FALSE
+0,0,FALSE
+0,1,FALSE
+1,1,TRUE
+1,0,FALSE
+`;
+
 const TEST_CSV_DATA = `
 2.23,1.15,0.16,LESS
 0.05,0.95,1.60,LESS
@@ -2161,6 +2173,7 @@ const TEST_DATA_IRIS = `
 `;
 
 module.exports = {
+  AND_GATE,
   TEST_CSV_DATA,
   TEST_CSV_DATA_2,
   TEST_DATA_IRIS

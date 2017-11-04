@@ -68,10 +68,12 @@ function train() {
       break;
 
     case TrainingMode.DIVIDE_INPUT_DATA: {
-      let dimensionPerClient = nn._dimension / clients.length;
+      let dimensionPerClient = nn.outputData.values.length / clients.length;
+      console.log('dimensionPerClient = ', dimensionPerClient);
 
       for (let i = 0; i < clients.length; i++) {
-        let socketId = clients[i];
+        let socketId = clients[i].id;
+
         io.sockets.connected[socketId].emit('receive data', data);
         io.sockets.connected[socketId].emit('receive trained data', Object.assign({
           // this basically freezes the weights outside of this range. Could be optimized,
@@ -148,6 +150,8 @@ function done() {
   var rmse = calculateRootMeanSquaredError(result);
   console.log('Root Mean Squared Error:', rmse);
 
+  console.log('Demo prediction for [5.0,3.3,1.4,0.2]:', nn.outputData.reverseLookup(0, result.predict([5.0,3.3,1.4,0.2])));
+
   return result;
 }
 
@@ -156,13 +160,17 @@ app.get('/train', function (req, res) {
   res.send('Training with ' + clients.length + ' clients. Mode: ' + trainingMode);
 });
 
+let finishEarlyTimeout;
+
 io.on('connection', function (socket) {
-  clients.push(socket.id);
+  clients.push(socket);
 
   socket.on('update trained data', function (deltas) {
     updateDeltas(deltas);
 
     numResults++;
+    // console.log('numResults = ', numResults);
+    // console.log('max = ', NUM_TOTAL_ITERATIONS * nn.outputData.values.length * clients.length);
 
     let resultsCompleted = false;
 
@@ -176,8 +184,7 @@ io.on('connection', function (socket) {
     }
 
     if (resultsCompleted) {
-      var result = done();
-      console.log('Demo prediction for [5,3,1,0.1]:', nn.outputData.reverseLookup(0, result.predict([5,3,1,0.1])));
+      done();
     } else {
       socket.broadcast.emit('receive trained data', {
         wWeights: nn.trainedData.wWeights,
@@ -185,15 +192,30 @@ io.on('connection', function (socket) {
         bias: nn.trainedData.bias,
         bout: nn.trainedData.bout
       });
+
+      if (finishEarlyTimeout) {
+        clearTimeout(finishEarlyTimeout);
+        finishEarlyTimeout = null;
+      }
+
+      finishEarlyTimeout = setTimeout(() => {
+        done();
+
+        clearTimeout(finishEarlyTimeout);
+        finishEarlyTimeout = null;
+      }, 3500);
     }
   });
 
   socket.on('disconnect', function () {
     console.log('disconnect');
-    const index = clients.indexOf(socket.id);
-    if (index !== -1) {
-      clients.splice(index, 1);
+    const index = clients.indexOf(socket);
+
+    if (index === -1) {
+      throw Error(`index not found for client with id ${socket.id}`);
     }
+
+    clients.splice(index, 1);
   });
 });
 

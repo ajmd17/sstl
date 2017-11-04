@@ -108,7 +108,7 @@ function getTrainedDataDeltas(before) {
 const learn = (output, fout, foutArray, rowElements) => {
   var before = copyTrainedData();
 
-  let error = output - fout;
+  let error = output - fout; // desired - neuron output
   let n = 0.05;
 
   let dv;
@@ -125,32 +125,26 @@ const learn = (output, fout, foutArray, rowElements) => {
   dv = fout * (1.0 - fout) * error;
 
   for (let i = 0; i < dimension; i++) {
-    if (trainedData.inRange(i)) {
-      trainedData.vWeights[i] += n * dv * foutArray[i];
-    }
+    trainedData.vWeights[i] += n * dv * foutArray[i];
   }
 
   let dbout = n * dv;
   trainedData.bout += dbout;
 
   for (let i = 0; i < dimension; i++) {
-    if (trainedData.inRange(i)) {
-      dwi[i] = foutArray[i] * (1.0 - foutArray[i]) * trainedData.vWeights[i] * dv;
+    dwi[i] = foutArray[i] * (1.0 - foutArray[i]) * trainedData.vWeights[i] * dv;
 
-      for (let j = 0; j < dimension; j++) {
-        dw[j][i] = n * dwi[i] * rowElements[j];
-        trainedData.wWeights[j][i] += dw[j][i];
-      }
+    for (let j = 0; j < dimension; j++) {
+      dw[j][i] = n * dwi[i] * rowElements[j];
+      trainedData.wWeights[j][i] += dw[j][i];
     }
   }
 
   // modify bias
   for (let i = 0; i < dimension; i++) {
-    if (trainedData.inRange(i)) {
-      dbi[i] = foutArray[i] * (1.0 - foutArray[i]) * trainedData.vWeights[i] * dv;
-      db[i] = n * dbi[i];
-      trainedData.bias[i] += db[i];
-    }
+    dbi[i] = foutArray[i] * (1.0 - foutArray[i]) * trainedData.vWeights[i] * dv;
+    db[i] = n * dbi[i];
+    trainedData.bias[i] += db[i];
   }
 
   var deltas = getTrainedDataDeltas(before);
@@ -190,11 +184,13 @@ $(function () {
 
       if (currentIteration < numIterations) {
         for (var j = 0; j < outputData.values.length; j++) {
-          var rowElements = _extractRow(j);
-          var fouts = forwardPropagation(trainedData, dimension, rowElements);
-          var x = outputData.numericVariableAt(j, 0)/* first item as arrays not supported yet */;
+          if (trainedData.inRange(j)) {
+            var rowElements = _extractRow(j);
+            var fouts = forwardPropagation(trainedData, dimension, rowElements);
+            var x = outputData.numericVariableAt(j, 0)/* first item as arrays not supported yet */;
 
-          learn(x, fouts.fout, fouts.foutArray, rowElements);
+            learn(x, fouts.fout, fouts.foutArray, rowElements);
+          }
         }
 
         currentIteration++;
