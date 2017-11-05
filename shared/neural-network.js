@@ -4,6 +4,16 @@ const Data = require('./input-data');
 const TrainedData = require('./trained-data');
 const ColumnPicker = require('./column-picker');
 
+function shuffle(a, hasHeader) {
+    var j, x, i;
+    for (i = a.length - 1; i > (hasHeader ? 1 : 0); i--) {
+        j = Math.floor(Math.random() * (i + 1));
+        x = a[i];
+        a[i] = a[j];
+        a[j] = x;
+    }
+}
+
 class NeuralNetwork {
   /**
    * @param {Data} inputData
@@ -207,11 +217,19 @@ NeuralNetwork.Builder = {
 
       return {
           hasHeader: true,
+          shouldShuffle: false,
           inputs: inputColumnPicker,
           outputs: outputColumnPicker,
 
           header: function (enabled) {
               this.hasHeader = !!enabled;
+              return this;
+          },
+
+          /** The columns will be shuffled. */
+          shuffle: function (enabled=true) {
+              this.shouldShuffle = enabled;
+              return this;
           },
 
           build: function () {
@@ -223,6 +241,10 @@ NeuralNetwork.Builder = {
 
               const inputData = [];
               const outputData = [];
+
+              if (this.shouldShuffle) {
+                  shuffle(split, this.hasHeader);
+              }
 
               split.forEach((row, rowIdx) => {
                   const isHeader = this.hasHeader && rowIdx == 0;

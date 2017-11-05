@@ -18,12 +18,44 @@ const forwardPropagation = require('./shared/forward-propagation');
 const testData = require('./shared/test-data');
 
 var builder = NeuralNetwork.Builder.fromCsv(testData.TEST_DATA_IRIS);
-builder.header(false);
+builder.header(false).shuffle();
 builder.inputs.range(0, 4);
 builder.outputs.pick(4);
 
 var nn = builder.build();
 nn._initTrainedData();
+
+
+let syncInterval = null;
+/** @types { [key: string]: TrainedData } */
+let trainedDataChanges = {};
+
+function startSyncInterval() {
+  syncInterval = setInterval(() => {
+    let diffs = [];
+
+    //console.log('trainedDataChanges = ', trainedDataChanges);
+
+    let before = nn.trainedData.clone();
+
+    for (let key in trainedDataChanges) {
+      nn.trainedData.add(trainedDataChanges[key]);
+      //diffs.push(nn.trainedData.difference(trainedDataChanges[key]));
+    }
+
+    //let deltas = nn.trainedData.difference(before);
+
+   //console.log('sending out deltas', deltas);
+    io.emit('receive trained data', nn.trainedData.copy());
+  
+    trainedDataChanges = {};
+  }, 25);
+}
+
+function stopSyncInterval() {
+  clearInterval(syncInterval);
+  syncInterval = null;
+}
 
 let clients = [];
 
@@ -87,31 +119,11 @@ function train() {
         io.sockets.connected[socketId].emit('train', NUM_TOTAL_ITERATIONS);
       }
 
+      //startSyncInterval();
+
       break;
     }
   }
-}
-
-function updateDeltas(deltas) {
-  var wWeights = deltas.wWeights;
-  var vWeights = deltas.vWeights;
-  var bias = deltas.bias;
-
-  for (let i = 0; i < wWeights.length; i++) {
-    for (let j = 0; j < wWeights[i].length; j++) {
-      nn.trainedData.wWeights[i][j] += wWeights[i][j];
-    }
-  }
-
-  for (let i = 0; i < vWeights.length; i++) {
-    nn.trainedData.vWeights[i] += vWeights[i];
-  }
-
-  for (let i = 0; i < bias.length; i++) {
-    nn.trainedData.bias[i] += bias[i];
-  }
-
-  nn.trainedData.bout += deltas.bout;
 }
 
 /**
@@ -142,15 +154,20 @@ function calculateRootMeanSquaredError(result) {
   return Math.sqrt(meanSquaredError);
 }
 
-function done() {
+function done() {  
   console.log('done');
+  
+  stopSyncInterval();
+
+  clearTimeout(finishEarlyTimeout);
+  finishEarlyTimeout = null;
 
   const result = new Result((input) => forwardPropagation(nn.trainedData, nn._dimension, input).fout);
 
   var rmse = calculateRootMeanSquaredError(result);
   console.log('Root Mean Squared Error:', rmse);
 
-  console.log('Demo prediction for [5.0,3.3,1.4,0.2]:', nn.outputData.reverseLookup(0, result.predict([5.0,3.3,1.4,0.2])));
+  console.log('Demo prediction for [5.0,3.3,1.4,0.2]:', result.predict([5.0,3.3,1.4,0.2]));
 
   return result;
 }
@@ -166,7 +183,10 @@ io.on('connection', function (socket) {
   clients.push(socket);
 
   socket.on('update trained data', function (deltas) {
-    updateDeltas(deltas);
+    //updateDeltas(deltas);
+    //console.log('data = ', data);
+    //trainedDataChanges[socket.id] = deltas;
+    nn.trainedData.add(deltas);
 
     numResults++;
     // console.log('numResults = ', numResults);
@@ -186,12 +206,13 @@ io.on('connection', function (socket) {
     if (resultsCompleted) {
       done();
     } else {
-      socket.broadcast.emit('receive trained data', {
-        wWeights: nn.trainedData.wWeights,
-        vWeights: nn.trainedData.vWeights,
-        bias: nn.trainedData.bias,
-        bout: nn.trainedData.bout
-      });
+
+      // socket.broadcast.emit('receive trained data', {
+      //   wWeights: nn.trainedData.wWeights,
+      //   vWeights: nn.trainedData.vWeights,
+      //   bias: nn.trainedData.bias,
+      //   bout: nn.trainedData.bout
+      // });
 
       if (finishEarlyTimeout) {
         clearTimeout(finishEarlyTimeout);
@@ -200,9 +221,6 @@ io.on('connection', function (socket) {
 
       finishEarlyTimeout = setTimeout(() => {
         done();
-
-        clearTimeout(finishEarlyTimeout);
-        finishEarlyTimeout = null;
       }, 3500);
     }
   });

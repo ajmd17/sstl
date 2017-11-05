@@ -50,52 +50,6 @@ function _extractRow(rowIndex) {
 //   return 1.0 / (1.0 + Math.exp(-value));
 // };
 
-function copyTrainedData() {
-  var before = {
-    wWeights: [],
-    vWeights: [],
-    bias: [],
-    bout: trainedData.bout
-  };
-
-  for (var i = 0; i < trainedData.vWeights.length; i++) {
-    before.vWeights.push(trainedData.vWeights[i]);
-  }
-
-  for (var i = 0; i < trainedData.wWeights.length; i++) {
-    var current = [];
-
-    for (var j = 0; j < trainedData.wWeights[i].length; j++) {
-      current.push(trainedData.wWeights[i][j]);
-    }
-
-    before.wWeights.push(current);
-  }
-
-  for (var i = 0; i < trainedData.bias.length; i++) {
-    before.bias.push(trainedData.bias[i]);
-  }
-
-  return before;
-}
-
-function getTrainedDataDeltas(before) {
-  // get deltas
-  return {
-    vWeights: trainedData.vWeights.map(function (x, i) {
-      return x - before.vWeights[i];
-    }),
-    wWeights: trainedData.wWeights.map(function (x, i) {
-      return x.map(function (y, j) {
-        return y - before.wWeights[i][j];
-      })
-    }),
-    bias: trainedData.bias.map(function (x, i) {
-      return x - before.bias[i];
-    }),
-    bout: trainedData.bout - before.bout
-  };
-}
 
 /**
  * @param {number} output
@@ -106,7 +60,7 @@ function getTrainedDataDeltas(before) {
  * @param {number[]} rowElements
  */
 const learn = (output, fout, foutArray, rowElements) => {
-  var before = copyTrainedData();
+  //
 
   let error = output - fout; // desired - neuron output
   let n = 0.05;
@@ -147,10 +101,9 @@ const learn = (output, fout, foutArray, rowElements) => {
     trainedData.bias[i] += db[i];
   }
 
-  var deltas = getTrainedDataDeltas(before);
+  //var deltas = trainedData.difference(before);
 
-  //console.log('deltas = ', deltas);
-  socket.emit('update trained data', deltas);
+  //console.log('deltas = ', deltas);//deltas);
 };
 
 /**
@@ -171,8 +124,24 @@ $(function () {
     dimension = inputData.values[0].length;
   });
 
+  let lastFullTrainedData = null;
+
   socket.on('receive trained data', function (data) {
-    trainedData = new TrainedData(data.vWeights, data.wWeights, data.bias, data.bout, data.range);
+    //console.log('receive trained data', data);
+
+    let newTrainedData = new TrainedData(data.vWeights, data.wWeights, data.bias, data.bout, data.range);
+    console.log('newTrainedData = ', newTrainedData);
+    if (lastFullTrainedData == null) {
+      trainedData = newTrainedData;
+      lastFullTrainedData = trainedData.clone();
+    } else {
+      let diffFromLast = trainedData.difference(newTrainedData);/*newTrainedData.difference(lastFullTrainedData);*/
+
+      console.log('resync: ', diffFromLast);
+
+      trainedData.add(diffFromLast);
+      lastFullTrainedData = newTrainedData;
+    }
   });
   
   socket.on('train', function (numIterations) {
@@ -185,13 +154,20 @@ $(function () {
       if (currentIteration < numIterations) {
         for (var j = 0; j < outputData.values.length; j++) {
           if (trainedData.inRange(j)) {
+            let before = trainedData.copy();
+
             var rowElements = _extractRow(j);
             var fouts = forwardPropagation(trainedData, dimension, rowElements);
             var x = outputData.numericVariableAt(j, 0)/* first item as arrays not supported yet */;
 
             learn(x, fouts.fout, fouts.foutArray, rowElements);
+
+            let newDiffFromLast = trainedData.difference(before);
+            socket.emit('update trained data', newDiffFromLast);
           }
         }
+
+        //console.log('sending out trained data: ', copy);
 
         currentIteration++;
         setTimeout(next, 50);
